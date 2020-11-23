@@ -21,26 +21,19 @@ namespace DBML2MS
             public bool Verbose { get; set; }
         }
 
-        static async Task Main(string[] args)
+        static Task Main(string[] args)
         {
-            await CheckForPrerequisites("prerequisites.json");
             Parser.Default.ParseArguments<Options>(args)
-                   .WithParsed<Options>(o =>
+                   .WithParsed(async options =>
                    {
-                       if (o.Verbose)
-                       {
-                           Console.WriteLine($"Verbose output enabled. Current Arguments: -v {o.Verbose}");
-                           Console.WriteLine("Quick Start Example! App is in Verbose mode!");
-                       }
-                       else
-                       {
-                           Console.WriteLine($"Current Arguments: -v {o.Verbose}");
-                           Console.WriteLine("Quick Start Example!");
-                       }
+                       await CheckForPrerequisites("prerequisites.json", options.Verbose);
+                       Console.WriteLine("ALl ok");
                    });
+
+            return Task.CompletedTask;
         }
 
-        static async Task CheckForPrerequisites(string prerequisitesFile)
+        static async Task CheckForPrerequisites(string prerequisitesFile, bool verbose = true)
         {
             if (!File.Exists(prerequisitesFile))
             {
@@ -50,7 +43,23 @@ namespace DBML2MS
             var prerequisites = JsonConvert.DeserializeObject<IEnumerable<Prerequisite>>(File.ReadAllText(prerequisitesFile));
             foreach(var prerequisite in prerequisites)
             {
-                var commandOutput = await ReadAsync(prerequisite.Command, string.Join(' ', prerequisite.Arguments));
+                var commandOutput = string.Empty;
+                try
+                {
+                    if (verbose)
+                    {
+                        Console.WriteLine($"Checking {prerequisite.Name}...");
+                    }
+                    commandOutput = await ReadAsync(prerequisite.Command, string.Join(' ', prerequisite.Arguments), noEcho: !verbose, createNoWindow: true);
+                    if (verbose)
+                    { 
+                        Console.WriteLine($"{prerequisite.Name} ok");
+                    }
+                }
+                catch (Exception e)
+                {
+                    throw new PrerequisiteNotMetException(prerequisite.Name, e);
+                }
                 var regex = new Regex(prerequisite.ExpectedOutput);
                 if (!regex.IsMatch(commandOutput))
                 {

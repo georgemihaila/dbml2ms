@@ -18,5 +18,10 @@ namespace DBML2MS.Exceptions
         {
             Name = name;
         }
+
+        public PrerequisiteNotMetException(string message, Exception innerException) : base(message, innerException)
+        {
+
+        }
     }
 }

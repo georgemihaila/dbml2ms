@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DBML2MS": {
+      "commandName": "Project",
+      "commandLineArgs": "-v"
+    }
+  }
+}

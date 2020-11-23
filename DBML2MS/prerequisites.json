@@ -1,8 +1,20 @@
 [
   {
     "Name": "NodeJS",
-    "Command": "node",
+    "Command": "node.exe",
     "Arguments": [ "-v" ],
     "ExpectedOutput": "v14.*"
+  },
+  {
+    "Name": "SqlCmd",
+    "Command": "sqlcmd.exe",
+    "Arguments": [ "-?" ],
+    "ExpectedOutput": "Copyright*"
+  },
+  {
+    "Name": "DBML2SQL",
+    "Command": "dbml2sql.cmd",
+    "Arguments": [ "-V" ],
+    "ExpectedOutput": "2.1.*"
   }
 ]
