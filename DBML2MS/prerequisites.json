@@ -1,0 +1,8 @@
+[
+  {
+    "Name": "NodeJS",
+    "Command": "node",
+    "Arguments": [ "-v" ],
+    "ExpectedOutput": "v14.*"
+  }
+]
