@@ -2,7 +2,7 @@
   "profiles": {
     "DBML2MS": {
       "commandName": "Project",
-      "commandLineArgs": "-v"
+      "commandLineArgs": "-v --source Expenses.dbml --dbname=Expenses --connection-string=Data Source=dbos;User ID=sa;Password=SQLSRV^^2triton -d"
     }
   }
 }

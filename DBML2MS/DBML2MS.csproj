@@ -6,11 +6,23 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Expenses.dbml" />
     <None Remove="prerequisites.json" />
+    <None Remove="scripts\create-and-use-database.sql" />
+    <None Remove="scripts\drop-database.sql" />
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Expenses.dbml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="prerequisites.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="scripts\create-and-use-database.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="scripts\drop-database.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -18,7 +30,6 @@
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.0-preview1" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-    <PackageReference Include="SimpleExec" Version="6.3.0" />
   </ItemGroup>
 
 </Project>

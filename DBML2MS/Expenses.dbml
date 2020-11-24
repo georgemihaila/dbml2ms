@@ -1,0 +1,125 @@
+Table Accounts {
+  Name varchar [pk, not null]
+  Currency varchar [not null]
+  Type varchar [not null]
+}
+
+Ref: Accounts.Currency > Currencies.Symbol
+Ref: Accounts.Type > AccountTypes.Name
+
+Table Balances {
+  Account varchar [not null]
+  Amount float
+  ValidFrom datetime [not null]
+  ValidUntil datetime [not null]
+}
+
+Ref: Balances.Account > Accounts.Name
+
+Table AccountTypes{
+  Name varchar [pk, not null]
+}
+
+Table Currencies {
+  Symbol varchar [pk, not null]
+  Name varchar [not null]
+}
+
+Table Labels {
+  Name varchar [pk, not null]
+}
+
+Table Categories {
+  Name varchar [pk, not null]
+}
+
+Table MainSubcategories {
+  Category varchar [not null]
+  Name varchar [pk, not null]
+}
+
+Ref: MainSubcategories.Category > Categories.Name
+
+Table Subcategories {
+  Name varchar [pk, not null]
+  MainSubcategory varchar [not null]
+}
+
+Ref: Subcategories.MainSubcategory > MainSubcategories.Name
+
+Table PaymentTypes{
+  Name varchar [pk, not null]
+}
+
+Table RecordTypes {
+  Name varchar [pk, not null]
+}
+
+Table Records {
+  ID int [pk, increment]
+  Type varchar [not null]
+  Account varchar [not null]
+  Amount float [not null]
+  Currency varchar [not null]
+  Category varchar
+  MainSubcategory varchar
+  Subcategory varchar
+  Date datetime [not null]
+  Note varchar
+  PaymentType varchar [not null]
+}
+
+Ref: Records.Type > RecordTypes.Name
+Ref: Records.Account > Accounts.Name
+Ref: Records.Currency > Currencies.Symbol
+Ref: Records.Category > Categories.Name
+Ref: Records.MainSubcategory > MainSubcategories.Name
+Ref: Records.Subcategory > Subcategories.Name
+Ref: Records.PaymentType > PaymentTypes.Name
+
+Table LabelsForRecords {
+  Label varchar [not null]
+  Record int [not null]
+}
+
+Ref: LabelsForRecords.Label > Labels.Name
+Ref: LabelsForRecords.Record > Records.ID
+
+Table ImportServices {
+  Name varchar [pk, not null]
+}
+
+Table ImportData {
+  ID int [pk, increment]
+  Service varchar [not null]
+  RawData varchar [not null]
+}
+
+Ref: ImportData.Service > ImportServices.Name
+
+Table Imports {
+  ID int [pk, increment]
+  Data int [not null]
+  Date datetime [not null]
+}
+
+Ref: Imports.Data > ImportData.ID
+
+Table ImportedRecords {
+  Import int [not null]
+  Record int [not null]
+}
+
+Ref: ImportedRecords.Import > Imports.ID
+Ref: ImportedRecords.Record > Records.ID
+
+Table ExchangeRates {
+  ValidFrom datetime [not null]
+  ValidUntil datetime [not null]
+  BaseCurrency varchar [not null]
+  ReferenceCurrency varchar [not null]
+  Value float [not null]
+}
+
+Ref: ExchangeRates.BaseCurrency > Currencies.Symbol
+Ref: ExchangeRates.ReferenceCurrency > Currencies.Symbol
