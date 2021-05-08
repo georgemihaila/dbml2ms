@@ -3,18 +3,30 @@
     "Name": "NodeJS",
     "Command": "node.exe",
     "Arguments": [ "-v" ],
-    "ExpectedOutput": "v14.*"
+    "ExpectedOutput": "/v14./"
   },
   {
     "Name": "SqlCmd",
     "Command": "sqlcmd.exe",
     "Arguments": [ "-?" ],
-    "ExpectedOutput": "Copyright*"
+    "ExpectedOutput": "/Copyright/"
   },
   {
     "Name": "DBML2SQL",
     "Command": "dbml2sql.cmd",
     "Arguments": [ "-V" ],
-    "ExpectedOutput": "2.1.*"
+    "ExpectedOutput": "/2.1./"
+  },
+  {
+    "Name": "EntityFrameworkCore",
+    "Command": "dotnet",
+    "Arguments": [ "ef", "version" ],
+    "ExpectedOutput": "/3./"
+  },
+  {
+    "Name": "EntityFrameworkCore.Design",
+    "Command": "dotnet",
+    "Arguments": [ "ef" ],
+    "ExpectedOutput": "/Entity Framework Core/"
   }
 ]

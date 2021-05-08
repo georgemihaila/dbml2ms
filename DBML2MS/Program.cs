@@ -8,9 +8,10 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Text.RegularExpressions;
-using DBML2MS.Exceptions;
+using DBML2HTTP.Exceptions;
+using System.Data.SqlClient;
 
-namespace DBML2MS
+namespace DBML2HTTP
 {
     public class Program
     {
@@ -30,6 +31,23 @@ namespace DBML2MS
 
             [Option('d', "verbose", Required = false, HelpText = "Drop database if already exists.")]
             public bool DropIfAlreadyExists { get; set; } = false;
+
+            [Option("no-project", Required = false, HelpText = "Whether to only create a database and not also create a project.")]
+            public bool DontCreateProject { get; set; } = false;
+
+            [Option("context-name", Required = false, HelpText = "The name of the database context")]
+            public string ContextName { get; set; } = string.Empty;
+
+            [Option("project-name", Required = false, HelpText = "The name of the output project")]
+            public string ProjectName { get; set; } = string.Empty;
+
+            [Option("project-dir", Required = false, HelpText = "The directory where the project will be created")]
+            public string ProjectLocation { get; set; } = string.Empty;
+
+            [Option("run", Required = false, HelpText = "Run the project after creation")]
+            public bool Run { get; set; } = false;
+
+            public string ProjectDirectory => ProjectLocation + ProjectName;
         }
 
         static Options RunOptions { get; set; }
@@ -39,24 +57,122 @@ namespace DBML2MS
             Parser.Default.ParseArguments<Options>(args)
                    .WithParsed(async options =>
                    {
-                       RunOptions = options;
+                       //Looks like .WithParsed( ... ) swallows exceptions
+                       try
+                       {
+                           RunOptions = options;
+                           if (string.IsNullOrWhiteSpace(RunOptions.ProjectLocation))
+                           {
+                               RunOptions.ProjectLocation = AppDomain.CurrentDomain.BaseDirectory;
+                           }
 
-                       CheckForPrerequisites("prerequisites.json");
-                       await CreateDatabaseScriptAsync(options.DbmlFile, options.DatabaseName);
+                           Console.WriteLine("Checking for prerequisites...");
+                           CheckForPrerequisites("prerequisites.json");
+                           Console.WriteLine("Creating database script...");
+                           await CreateAndWriteDatabaseScriptAsync(options.DbmlFile, options.DatabaseName);
+                           Console.WriteLine("Creating database...");
+                           CreateDatabase();
+                           if (!options.DontCreateProject)
+                           {
+                               CreateProject();
+                               AddDependencies();
+                               ScaffoldDbContext();
+                               AddConnectionStringToAppsettings();
+                               SetupStartup();
+                               if (options.Run)
+                               {
+                                   Build();
+                                   Run();
+                               }
+                           }
+                       }
+                       catch (Exception e)
+                       {
+                           Console.WriteLine(e);
+                       }
                    });
 
             return Task.CompletedTask;
         }
 
-        static async Task CreateDatabaseScriptAsync(string file, string databaseName)
+        static void AddConnectionStringToAppsettings()
+        {
+            var location = $"{RunOptions.ProjectDirectory}\\appsettings.json";
+            File.Delete(location);
+            File.WriteAllText(location, File.ReadAllText("templates/appsettings.json").Replace("[0]", $"{RunOptions.ConnectionString}Initial Catalog={RunOptions.DatabaseName};"));
+        }
+
+        static void SetupStartup()
+        {
+            var location = $"{RunOptions.ProjectDirectory}\\Startup.cs";
+            File.Delete(location);
+            File.WriteAllText(location, File.ReadAllText("templates/Startup.cs")
+                .Replace("[ProjectName]", RunOptions.ProjectName)
+                .Replace("[ContextName]", RunOptions.ContextName));
+        }
+
+        static void CreateProject()
+        {
+            if (string.IsNullOrWhiteSpace(RunOptions.ProjectName))
+            {
+                RunOptions.ProjectName = $"{RunOptions.DatabaseName}API";
+            }
+            Console.WriteLine($"Creating project {RunOptions.ProjectName}...");
+            ExecuteCommandLineAndPrintIfVerbose("dotnet", $"new webapi --name {RunOptions.ProjectName}");
+        }
+
+        static void AddDependencies()
+        {
+            Console.WriteLine("Adding dependencies...");
+            ExecuteCommandLineAndPrintIfVerbose("dotnet", $"add {RunOptions.ProjectName} package Microsoft.EntityFrameworkCore");
+            ExecuteCommandLineAndPrintIfVerbose("dotnet", $"add {RunOptions.ProjectName} package Microsoft.EntityFrameworkCore.Design");
+            ExecuteCommandLineAndPrintIfVerbose("dotnet", $"add {RunOptions.ProjectName} package Microsoft.EntityFrameworkCore.SqlServer");
+            ExecuteCommandLineAndPrintIfVerbose("dotnet", $"add {RunOptions.ProjectName} package Swashbuckle.AspNetCore");
+            ExecuteCommandLineAndPrintIfVerbose("dotnet", $"add {RunOptions.ProjectName} package Swashbuckle.AspNetCore.Swagger");
+            ExecuteCommandLineAndPrintIfVerbose("dotnet", $"add {RunOptions.ProjectName} package Swashbuckle.AspNetCore.SwaggerUI");
+        }
+
+        static void Build()
+        {
+            Console.WriteLine("Building...");
+            ExecuteCommandLineAndPrintIfVerbose("dotnet", "build", RunOptions.ProjectDirectory);
+        }
+
+        static void Run()
+        {
+            Console.WriteLine("Running...");
+            ExecuteCommandLineAndPrintIfVerbose("dotnet", "run", RunOptions.ProjectDirectory);
+        }
+
+        static void ScaffoldDbContext()
+        {
+            if (string.IsNullOrWhiteSpace(RunOptions.ContextName))
+            {
+                RunOptions.ContextName = $"{RunOptions.DatabaseName}Context";
+            }
+            Console.WriteLine($"Creating context {RunOptions.ContextName}...");
+            ExecuteCommandLineAndPrintIfVerbose("dotnet", $"ef dbcontext scaffold \"{RunOptions.ConnectionString}Initial Catalog={RunOptions.DatabaseName};\" Microsoft.EntityFrameworkCore.SqlServer -o {"Contexts"} --project={RunOptions.ProjectName}");
+        }
+
+        static void RegisterContext()
+        {
+            Console.WriteLine("Registering context...");
+        }
+
+        static async Task CreateAndWriteDatabaseScriptAsync(string file, string databaseName)
         {
             if (!File.Exists(file))
             {
                 throw new FileNotFoundException($"DBML file \"{file}\" does not exist.");
             }
-            var x = ExecuteCommandLine("dbml2sql.cmd", $"{file} --mssql", AppDomain.CurrentDomain.BaseDirectory);
+            var x = ExecuteCommandLineAndPrintIfVerbose("dbml2sql.cmd", $"{file} --mssql").Replace("GO", ";");
 
             var filename = databaseName + ".sql";
+            if (File.Exists(filename))
+            {
+                File.Delete(filename);
+            }
+
             if (RunOptions.DropIfAlreadyExists)
             {
                 await File.WriteAllTextAsync(filename, AppendAndPrependNewLine(File.ReadAllText("scripts/drop-database.sql").Replace("[0]", $"[{RunOptions.DatabaseName}]")));
@@ -82,26 +198,31 @@ namespace DBML2MS
                     {
                         Console.WriteLine($"Checking {prerequisite.Name}...");
                     }
-                    commandOutput = ExecuteCommandLine(prerequisite.Command, string.Join(' ', prerequisite.Arguments));
-                    if (RunOptions.Verbose)
-                    { 
-                        Console.WriteLine($"{prerequisite.Name} ok");
-                    }
+                    commandOutput = ExecuteCommandLineAndPrintIfVerbose(prerequisite.Command, string.Join(' ', prerequisite.Arguments));
                 }
                 catch (Exception e)
                 {
                     throw new PrerequisiteNotMetException(prerequisite.Name, e);
                 }
                 var regex = new Regex(prerequisite.ExpectedOutput);
-                if (!regex.IsMatch(commandOutput))
+                if (regex.Matches(commandOutput).Count > 0)
                 {
                     throw new PrerequisiteNotMetException(prerequisite.Name);
+                }
+                if (RunOptions.Verbose)
+                {
+                    Console.WriteLine($"{prerequisite.Name} ok");
                 }
             }
         }
 
-        static string ExecuteCommandLine(string command, string parameters, string workingDirectory = "")
+        static string ExecuteCommandLineAndPrintIfVerbose(string command, string parameters, string workingDirectory = "")
         {
+            if (string.IsNullOrWhiteSpace(workingDirectory))
+            {
+                    workingDirectory = RunOptions.ProjectLocation;
+            }
+
             if (RunOptions.Verbose)
             {
                 Console.Write($"{command} {parameters}: ");
@@ -153,6 +274,51 @@ namespace DBML2MS
                 source += Environment.NewLine;
             }
             return source;
+        }
+
+        static void CreateDatabase()
+        {
+            var options = RunOptions;
+            if (options.Verbose)
+            {
+                Console.WriteLine("Opening database connection...");
+            }
+            try
+            {
+                using (var connection = new SqlConnection(options.ConnectionString))
+                {
+                    connection.Open();
+#pragma warning disable CA2100
+                    using (var command = new SqlCommand(File.ReadAllText($"{options.DatabaseName}.sql"))
+                    {
+                        Connection = connection
+                    })
+#pragma warning restore CA2100
+                    {
+                        if (options.Verbose)
+                        {
+                            Console.WriteLine("Writing changes...");
+                        }
+
+                        command.ExecuteNonQuery();
+                    }
+
+                    connection.Close();
+                }
+
+                if (options.Verbose)
+                {
+                    Console.WriteLine("Done creating database");
+                }
+            }
+            catch (Exception e)
+            {
+                if (options.Verbose)
+                {
+                    Console.WriteLine(e);
+                }
+            }
+
         }
     }
 

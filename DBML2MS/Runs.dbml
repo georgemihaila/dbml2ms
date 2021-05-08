@@ -1,0 +1,7 @@
+﻿Table Runs {
+ID varchar [pk, not null]
+Date datetime [not null]
+Distance double [not null]
+Time datetime [not null]
+HeartRate double
+}

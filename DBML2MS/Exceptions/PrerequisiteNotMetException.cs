@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DBML2MS.Exceptions
+namespace DBML2HTTP.Exceptions
 {
     /// <summary>
     /// The exception that is thrown when a prerequisite is not met.
@@ -13,6 +13,11 @@ namespace DBML2MS.Exceptions
     public class PrerequisiteNotMetException : Exception
     {
         public string Name { get; private set; }
+
+        public override string ToString()
+        {
+            return $"Prerequisite \"{Name}\" not met{Environment.NewLine}{base.ToString()}";
+        }
 
         public PrerequisiteNotMetException(string name)
         {
